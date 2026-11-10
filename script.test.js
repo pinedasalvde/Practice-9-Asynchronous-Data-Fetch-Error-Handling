@@ -4,7 +4,8 @@ const { join } = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const script = readFileSync(join(__dirname, "script.js"), "utf8");
+const html = readFileSync(join(__dirname, "index.html"), "utf8");
+const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 function createPage(fetch) {
   function element() {
@@ -12,8 +13,8 @@ function createPage(fetch) {
       textContent: "",
       children: [],
       disabled: false,
-      append(...children) {
-        this.children.push(...children);
+      appendChild(child) {
+        this.children.push(child);
       },
       replaceChildren(...children) {
         this.children = children;
@@ -27,9 +28,9 @@ function createPage(fetch) {
   const users = element();
   const status = element();
   const button = element();
-  const elements = { "#users": users, "#status": status, "#load-users": button };
+  const elements = { users, status, reload: button };
   const document = {
-    querySelector: (selector) => elements[selector],
+    getElementById: (id) => elements[id],
     createElement: element,
   };
   vm.runInNewContext(script, {
@@ -55,8 +56,7 @@ test("renders users as text and allows reloading", async () => {
   assert.equal(page.status.textContent, "Loading users...");
   await tick();
   assert.equal(page.users.children.length, 1);
-  assert.equal(page.users.children[0].children[0].textContent, "<Example>");
-  assert.equal(page.users.children[0].children[1].textContent, "example@example.com");
+  assert.equal(page.users.children[0].textContent, "<Example> — example@example.com");
   assert.equal(page.status.textContent, "Showing 1 users.");
   assert.equal(page.button.disabled, false);
   await page.button.click();
